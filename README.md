@@ -35,4 +35,4 @@ Hardware:
 
 Software:
 - [ ] Send disk speed in rps from max to the nucleo (MIDI pitch bend?)
-- [ ] Ethernet controll
+- [ ] Ethernet control
