@@ -1,3 +1,6 @@
 [submodule "software/nucleo-pio/lib/NSS"]
 	path = software/nucleo-pio/lib/NSS
 	url = https://github.com/MPRlab/nss-library.git
+[submodule "software/nucleo-pio/lib/OSC-Ethernet"]
+	path = software/nucleo-pio/lib/OSC-Ethernet
+	url = https://github.com/MPRlab/OSC-Client.git
