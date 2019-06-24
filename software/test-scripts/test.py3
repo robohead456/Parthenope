@@ -17,9 +17,13 @@ print("Bus voltage is:" + str(odrv0.vbus_voltage) + "V")
 
 #print("Calibration current:" + str(odrv0.axis1.motor.config.calibration_current) + "A")
 
+odrv0.axis1.motor.config.current_lim = 10
 odrv0.config.brake_resistance = 0.5
 odrv0.axis1.motor.config.pole_pairs = 2
-odrv0.axis1.motor.config.resistance_calib_max_voltage = 5.0
+odrv0.axis1.motor.config.resistance_calib_max_voltage = 1.0
+odrv0.axis1.controller.config.vel_gain = 0.01
+odrv0.axis1.controller.config.vel_integrator_gain = 0.05
+odrv0.axis1.controller.config.control_mode = 2
 odrv0.axis1.sensorless_estimator.config.pm_flux_linkage = 0.000467228
 
 print("\r\nset parameters\r\n\r\nsaving config and rebooting\r\n")
@@ -48,17 +52,11 @@ print("Axis state: ")
 print(odrv0.axis1.current_state)
 print("\r\n")
 
-print("phase resistance: ", odrv0.axis1.motor.config.phase_resistance)
+while odrv0.axis1.current_state != AXIS_STATE_IDLE:
+	time.sleep(0.1)
 
-time.sleep(5)
-print("\r\naxis errors are:")
-print(hex(odrv0.axis1.error))	
-print("motor errors are:")
-print(hex(odrv0.axis1.motor.error))
-print("encoder errors are:")
-print(hex(odrv0.axis1.encoder.error))
-print("sensorless estimator errors are:")
-print(hex(odrv0.axis1.sensorless_estimator.error))
+print("phase resistance: ", odrv0.axis1.motor.config.phase_resistance)
+print("phase inductance: ", odrv0.axis1.motor.config.phase_inductance)
 
 print("\r\nIs calibrated? ", odrv0.axis1.motor.is_calibrated)
 print("")
@@ -67,46 +65,39 @@ print("Axis state: ")
 print(odrv0.axis1.current_state)
 print("\r\n")
 
-'''
-Finding an ODrive...
+print("Requesting state 5\r\n")
+odrv0.axis1.requested_state = 5
 
-ODrive Found
-Bus voltage is:11.866625785827637V
+print("1000RPM\r\n")
+odrv0.axis1.controller.vel_setpoint = 1000 * 2*3.14159/60 * 2
+time.sleep(10)
 
-set parameters
+print("2000RPM\r\n")
+odrv0.axis1.controller.vel_setpoint = 2000 * 2*3.14159/60 * 2
+time.sleep(10)
 
-saving config and rebooting
+print("1000RPM\r\n")
+odrv0.axis1.controller.vel_setpoint = 1000 * 2*3.14159/60 * 2
+time.sleep(10)
 
-done rebooting
+print("10000RPM\r\n")
+odrv0.axis1.controller.vel_setpoint = 10000 * 2*3.14159/60 * 2
+time.sleep(10)
 
-
-Finding an ODrive...
-
-Found an ODrive
-
-Axis state: 
-1
-
-
-Requesting state 4
-
-Axis state: 
-4
+print("0RPM\r\n")
+odrv0.axis1.controller.vel_setpoint = 0
+time.sleep(1)
 
 
-phase resistance:  0.013660892844200134
+print("Requesting state 1\r\n")
+odrv0.axis1.requested_state = 1
+#odrv0.axis1.controller.vel_setpoint = 0
 
-axis errors are:
-0x2
-motor errors are:
-0x0
-encoder errors are:
-0x0
-sensorless estimator errors are:
-0x0
-
-Is calibrated?  False
-
-Axis state: 
-1
-'''
+#print("\r\naxis errors are:")
+#print(hex(odrv0.axis1.error))	
+#print("motor errors are:")
+#print(hex(odrv0.axis1.motor.error))
+#print("encoder errors are:")
+#print(hex(odrv0.axis1.encoder.error))
+#print("sensorless estimator errors are:")
+#rint(hex(odrv0.axis1.sensorless_estimator.error))
