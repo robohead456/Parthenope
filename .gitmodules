@@ -4,3 +4,6 @@
 [submodule "software/nucleo-pio/lib/OSC-Ethernet"]
 	path = software/nucleo-pio/lib/OSC-Ethernet
 	url = https://github.com/MPRlab/OSC-Client.git
+[submodule "software/nucleo-pio/lib/ODrive"]
+	path = software/nucleo-pio/lib/ODrive
+	url = https://github.com/robohead456/ODriveMbed.git
