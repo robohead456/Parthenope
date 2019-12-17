@@ -7,3 +7,9 @@
 [submodule "software/nucleo-pio/lib/ODrive"]
 	path = software/nucleo-pio/lib/ODrive
 	url = https://github.com/robohead456/ODriveMbed.git
+[submodule "software/ParthenopeArduino/lib/OSC"]
+	path = software/ParthenopeArduino/lib/OSC
+	url = https://github.com/CNMAT/OSC.git
+[submodule "software/ParthenopeArduino/lib/Ethernet"]
+	path = software/ParthenopeArduino/lib/Ethernet
+	url = https://github.com/robohead456/Ethernet.git
