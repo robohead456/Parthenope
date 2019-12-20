@@ -1,7 +1,0 @@
-{
-    "target_overrides": {
-      "*": {
-        "lwip.tcpip-thread-stacksize": 2048
-      }
-    }
-  }
