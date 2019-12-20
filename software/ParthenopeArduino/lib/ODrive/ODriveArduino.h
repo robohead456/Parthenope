@@ -18,6 +18,14 @@ public:
         AXIS_STATE_CLOSED_LOOP_CONTROL = 8  //<! run closed loop control
     };
 
+    enum ControlMode_t{
+        CTRL_MODE_VOLTAGE_CONTROL = 0,
+        CTRL_MODE_CURRENT_CONTROL = 1,
+        CTRL_MODE_VELOCITY_CONTROL = 2,
+        CTRL_MODE_POSITION_CONTROL = 3,
+        CTRL_MODE_TRAJECTORY_CONTROL = 4
+    };
+
     ODriveArduino(Stream& serial);
 
     // Commands
