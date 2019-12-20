@@ -3,6 +3,7 @@
 #include <Ethernet.h>
 #include <EthernetUdp.h>
 #include <OSCBundle.h>
+#include <ODriveArduino.h>
 
 /* ---------------------------------------------------------------------------------------- */
 //  CONSTANTS
@@ -12,8 +13,6 @@
 #define DISK_MOTOR_POLE_PAIRS 	(2)
 #define DISK1_AXIS			      	(0)
 #define DISK2_AXIS			      	(1)
-
-//#define PI           	      		(3.14159265358979323846)
 
 #define DISKSTATE_WAITING 	  	(0)
 #define DISKSTATE_PLAYING 	  	(1)
@@ -37,6 +36,9 @@
 
 #define PORT_IN             (8000)
 #define PORT_OUT            (8001)
+
+#define SerialPC Serial
+#define SerialOD Serial1
 
 /* ---------------------------------------------------------------------------------------- */
 //  FUNCTION PROTOTYPES
@@ -62,6 +64,7 @@ void stopDisksHelper(OSCMessage &msg);
 void startDisksHelper(OSCMessage &msg);
 void setHolesHelper(OSCMessage &msg);
 
+void test(void);
 void testSequence(uint8_t pitch);
 
 /* ---------------------------------------------------------------------------------------- */
@@ -76,32 +79,32 @@ uint8_t numHoles[NUM_DISKS][NUM_HOLE_SETS] = {
 
 const uint8_t solenoidPins[NUM_DISKS][VOLUME_LEVELS][NUM_HOLE_SETS] = { 
   { // disk 0
-    {2, // vol level 0
-     3,
-     4,
-     5},
-    {6, // vol level 1
-     7,
-     8,
-     9},
-    {11, // vol level 2
-     12,
-     13,
-     SDA}   
+    {22, // vol level 0
+     24,
+     26,
+     28},
+    {30, // vol level 1
+     32,
+     34,
+     36},
+    {38, // vol level 2
+     40,
+     42,
+     44}   
   },
   { // disk 1
-    {A5, // vol level 0
-     A4,
-     A3,
-     A2},
-    {A1, // vol level 1
-     A0,
-     0,
-     0},
-    {31, // vol level 2
-     30,
-     38,
-     SCL}
+    {23, // vol level 0
+     25,
+     27,
+     29},
+    {31, // vol level 1
+     33,
+     35,
+     37},
+    {39, // vol level 2
+     41,
+     43,
+     45}
   }
 };
 
@@ -124,19 +127,19 @@ int8_t  diskOffset[NUM_DISKS][NUM_DISKS] = { { 0, 7},
         first value  = currentDisk
         second value = disk to compare to
         uint8_t diskOffset[NUM_DISKS][NUM_DISKS] = { {  0, 10, 20, 30},
-                                                    {-10,  0, 10, 20},
-                                                    {-20,-10,  0, 10},
-                                                    {-30,-20,-10,  0}  };
+                                                     {-10,  0, 10, 20},
+                                                     {-20,-10,  0, 10},
+                                                     {-30,-20,-10,  0}  };
 */
 
 // multi register variables
 // <none>
 
 // ODrive
-// TODO
+ODriveArduino odrv0(SerialOD);
 
 // Networking
-EthernetUDP Udp;
+EthernetUDP UdpR;
 IPAddress IP(192, 168, 2, 11);
 byte MAC[] = {0x98, 0x76, 0xB6, 0x11, 0x36, 0x47};
 int size;
@@ -146,7 +149,10 @@ int size;
 
 void setup() {
 
-  SerialUSB.begin(9600);
+  pinMode(SCL,OUTPUT);
+
+  SerialPC.begin(9600);
+  SerialOD.begin(115200);
 
   pinMode(0,OUTPUT);
   digitalWrite(0,LOW);
@@ -157,9 +163,15 @@ void setup() {
 
   delay(5000);
 
-  SerialUSB.println("Starting Setup");
+  SerialPC.println("Starting Setup");
 
-  SerialUSB.println("Configuring Pins");
+  digitalWrite(SCL,LOW);
+  delay(20);
+  digitalWrite(SCL,HIGH);
+  delay(20);
+  digitalWrite(SCL,LOW);
+
+  SerialPC.println("Configuring Pins");
   for(uint8_t d = 0; d < NUM_DISKS; d++) {
     for(uint8_t v = 0; v < VOLUME_LEVELS; v++) {
       for(uint8_t h = 0; h < NUM_HOLE_SETS; h++) {
@@ -168,106 +180,61 @@ void setup() {
     }
   }
 
-  SerialUSB.println("Starting Ethernet");
+  SerialPC.println("Starting Ethernet");
   Ethernet.begin(MAC,IP);
-  /*if (Ethernet.begin(MAC) == 0) {
-    SerialUSB.println("Failed to configure Ethernet using DHCP");
-    // Check for Ethernet hardware present
-    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-      SerialUSB.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-    } else if (Ethernet.linkStatus() == LinkOFF) {
-      SerialUSB.println("Ethernet cable is not connected.");
-    }
-    // no point in carrying on, so do nothing forevermore:
-    while (true) {
-      delay(1);
-    }
-  }*/
+  if(Ethernet.hardwareStatus() == EthernetNoHardware) {
+    SerialPC.println("Ethernet shield was not found");
+    while(true) {delay(1);}
+  } 
+  else if(Ethernet.hardwareStatus() != EthernetW5500) {
+    SerialPC.println("Found an incompatible interface");
+    while(true) {delay(1);}
+    // SPI speed has been increased and will only work with the 5500
+  }
+  else if (Ethernet.linkStatus() == LinkOFF) {
+    SerialPC.println("Ethernet cable not connected");
+    while(true) {delay(1);}
+  }
+  if(UdpR.begin(PORT_IN) == 0) {
+    SerialPC.println("Unable to open receiver port");
+    while(true) {delay(1);}
+  }
 
-  SerialUSB.print("Hardware Status ");
-  SerialUSB.println(Ethernet.hardwareStatus());
+  SerialOD.print("r vbus_voltage\n");
+  SerialPC.print("Vbus voltage: ");Serial.println(odrv0.readFloat());
 
-  SerialUSB.print("Link Status     ");
-  SerialUSB.println(Ethernet.linkStatus());
-
-  SerialUSB.print("Port Opened     ");
-  SerialUSB.println(Udp.begin(PORT_IN));
-
-  SerialUSB.println("Starting Disks");
-
+  SerialPC.println("Starting Disks");
   startDisks();
 
 }
 
 void loop() {
 
-  /*
-  for(uint8_t d = 0; d < NUM_DISKS; d++) {
-    for(uint8_t v = 0; v < VOLUME_LEVELS; v++) {
-      for(uint8_t h = 0; h < NUM_HOLE_SETS; h++) {
-        digitalWrite(solenoidPins[d][v][h], HIGH);
-        delay(500);
-      }
-    }
-  }
-  for(uint8_t d = 0; d < NUM_DISKS; d++) {
-    for(uint8_t v = 0; v < VOLUME_LEVELS; v++) {
-      for(uint8_t h = 0; h < NUM_HOLE_SETS; h++) {
-        digitalWrite(solenoidPins[d][v][h], LOW);
-        delay(500);
-      }
-    }
-  }
-  
-
-  SerialUSB.println("Loop Start");
-  // test single register on/off
-  testSequence(69);
-  testSequence(71);
-  testSequence(73);
-  testSequence(74);
-  testSequence(76);
-  testSequence(78);
-  testSequence(80);
-  testSequence(81);
-
-  // test single register glissando
-  singleRegisterPlay(69,1);
-  delay(1000);
-  singleRegisterPlay(73,1);
-  delay(1000);
-  singleRegisterPlay(69,1);
-  delay(1000);
-  singleRegisterPlay(69,0);
-  delay(1000);
-*/
-
-
-  
+  // test();
 
   // If there is available data on the UDP port
-  if( (size = Udp.parsePacket()) >0 ) {
-    SerialUSB.print("Available Packet(s) - Size="); SerialUSB.println(size);
-
+  if( (size = UdpR.parsePacket()) >0 ) {
+    //SerialPC.print("Available Packet(s) - Size="); SerialPC.println(size);
 
     OSCMessage msg;
     msg.empty();
-    //SerialUSB.print("Did the bundle start with errors? "); SerialUSB.println(bundleIn.getError());
+    //SerialPC.print("Did the bundle start with errors? "); SerialPC.println(bundleIn.getError());
 
     // Fill the OSC Bundle
     while(size--) {
-      msg.fill(Udp.read());
+      msg.fill(UdpR.read());
     }
 
     // If there are no errors process the OSC Bundle
     if(!msg.hasError()) {
-      SerialUSB.println("Processing");
+      SerialPC.println("");
+      SerialPC.println("Processing Message");
       
       switch(currentState) {
         case STATE_SINGLEREGISTER:
           // Handle Play Messages
           if( msg.dispatch("/play", singleRegisterPlayHelper, 0) ) {
-            SerialUSB.println("Ran: Single Register Play");
+            SerialPC.println("Ran: Single Register Play");
           }
 
           // else if( OTHER SINGLEREGISTER STATE MESSAGE )
@@ -280,7 +247,7 @@ void loop() {
         case STATE_MULTIREGISTER:
           // Handle Play Messages
           if( msg.dispatch("/play", singleRegisterPlayHelper, 0) ) {
-            SerialUSB.println("Ran: Multi Register Play");
+            SerialPC.println("Ran: Multi Register Play");
           }
 
           // else if( OTHER MULTIREGISTER STATE MESSAGE )
@@ -293,7 +260,7 @@ void loop() {
         case STATE_IDLE:
           // Handle setHoles messages
           if( msg.dispatch("/setHoles", setHolesHelper, 0) ) {
-            SerialUSB.println("Ran: Set Holes");
+            SerialPC.println("Ran: Set Holes");
           }
 
           // else if( OTHER IDLE STATE MESSAGE )
@@ -309,10 +276,11 @@ void loop() {
       } // end switch(currentState)
     } // end if(!bundleIN.hasError())
     else {
-      SerialUSB.println("Bundle had an error");
-      SerialUSB.println(msg.getError());
+      SerialPC.println("Bundle had an error");
+      SerialPC.println(msg.getError());
     }
-  } //end if( (size = Udp.parsePacket()) >0 )
+  } //end if( (size = UdpR.parsePacket()) >0 )
+  //*/
 } // end loop()
 
 /* ---------------------------------------------------------------------------------------- */
@@ -370,9 +338,9 @@ float setSpeed(uint8_t midiNote, uint8_t holeSet, uint8_t disk) {
 	float speed = getSpeed(midiNote, holeSet, disk);
 	
 	if(speed > 0) {
-		//SerialUSB.println("Setting Speed");
-		//odrv.setVelocity(diskAxis[disk], speed);
-		//SerialUSB.println("Done");
+		//SerialPC.println("Setting Speed");
+		odrv0.SetVelocity(diskAxis[disk], speed);
+		//SerialPC.println("Done");
 	}
 
   return speed;
@@ -382,39 +350,45 @@ void stopDisks(void) {
 	setSpeed(0, DEFAULT_NOTE, DEFAULT_HOLE);
 	setSpeed(1, DEFAULT_NOTE, DEFAULT_HOLE);
 	delay(4000);
-	//odrv.run_state(DISK1_AXIS, ODriveMbed::AXIS_STATE_IDLE, 0);
-	//odrv.run_state(DISK2_AXIS, ODriveMbed::AXIS_STATE_IDLE, 0);
+	odrv0.run_state(DISK1_AXIS, ODriveArduino::AXIS_STATE_IDLE, 0);
+	odrv0.run_state(DISK2_AXIS, ODriveArduino::AXIS_STATE_IDLE, 0);
 }
 
 void startDisks(void) {
 
   if(requestedState == STATE_MULTIREGISTER) {
+    char buf[50];
     for(uint8_t i = 0; i < NUM_DISKS; i++) {
-      SerialUSB.print("disk"); SerialUSB.println(i);
-      SerialUSB.println("mode set to sensorless");
-      //odrv.run_state(DISK1_AXIS, ODriveMbed::AXIS_STATE_SENSORLESS_CONTROL, 0);
-      //odrv.setControlMode(DISK1_AXIS, ODriveMbed::CTRL_MODE_VELOCITY_CONTROL, 0);
-      delay(1000); //10000
+      SerialPC.print("disk"); SerialPC.println(i);
+      SerialPC.println("mode set to sensorless");
+      odrv0.run_state(diskAxis[i], ODriveArduino::AXIS_STATE_SENSORLESS_CONTROL, 0);
+      //odrv0.setControlMode(diskAxis[i], ODriveArduino::CTRL_MODE_VELOCITY_CONTROL, 0);
+      sprintf(buf, "w axis%d.controller.config.control_mode %d\n", diskAxis[i], ODriveArduino::CTRL_MODE_VELOCITY_CONTROL);
+      SerialOD.print(buf);
+      delay(10000); //10000
       currentNote[i] = DEFAULT_NOTE;
       currentHole[i] = DEFAULT_HOLE;
       float speed = setSpeed(currentNote[i], currentHole[i], i);
-      SerialUSB.print("speed set to "); SerialUSB.println(speed);
-      delay(1000); //10000
+      SerialPC.print("speed set to "); SerialPC.println(speed);
+      delay(10000); //10000
     }
   }
 
   else if(requestedState == STATE_SINGLEREGISTER) {
+    char buf[50];
     for(uint8_t i = 0; i < NUM_DISKS; i++) {
-      SerialUSB.print("disk"); SerialUSB.println(i);
-      SerialUSB.println("mode set to sensorless");
-      //odrv.run_state(DISK1_AXIS, ODriveMbed::AXIS_STATE_SENSORLESS_CONTROL, 0);
-      //odrv.setControlMode(DISK1_AXIS, ODriveMbed::CTRL_MODE_VELOCITY_CONTROL, 0);
-      delay(1000); //10000
+      SerialPC.print("disk"); SerialPC.println(i);
+      SerialPC.println("mode set to sensorless");
+      odrv0.run_state(diskAxis[i], ODriveArduino::AXIS_STATE_SENSORLESS_CONTROL, 0);
+      //odrv0.setControlMode(DISK1_AXIS, ODriveArduino::CTRL_MODE_VELOCITY_CONTROL, 0);
+      sprintf(buf, "w axis%d.controller.config.control_mode %d\n", diskAxis[i], ODriveArduino::CTRL_MODE_VELOCITY_CONTROL);
+      SerialOD.print(buf);
+      delay(10000); //10000
       currentNote[i] = DEFAULT_NOTE + diskOffset[currentDisk][i];
       currentHole[i] = DEFAULT_HOLE;
       float speed = setSpeed(currentNote[i], currentHole[i], i);
-      SerialUSB.print("speed set to "); SerialUSB.println(speed);
-      delay(1000); //10000
+      SerialPC.print("speed set to "); SerialPC.println(speed);
+      delay(10000); //10000
     }
   }
 
@@ -482,17 +456,16 @@ void singleRegisterPlay(uint8_t pitch, uint8_t velocity) {
 						currentHole[d] = DEFAULT_HOLE;
 					}
 					float speed = setSpeed(currentNote[d], currentHole[d], d);
-          SerialUSB.print("disk"); SerialUSB.print(d);
-          SerialUSB.print(" speed set to "); SerialUSB.println(speed);
+          SerialPC.print("disk"); SerialPC.print(d);
+          SerialPC.print(" speed set to "); SerialPC.println(speed);
 				}
 
 				solenoidOn(currentDisk, currentHole[currentDisk], currentVolume[currentDisk]);
 
-        SerialUSB.print("ON  ");
-        SerialUSB.print("Disk "); SerialUSB.print(currentDisk); 
-        SerialUSB.print(" Hole "); SerialUSB.print(currentHole[currentDisk]); 
-        SerialUSB.print(" Vol "); SerialUSB.println(currentVolume[currentDisk]); 
-        SerialUSB.println("");
+        SerialPC.print("ON  ");
+        SerialPC.print("Disk "); SerialPC.print(currentDisk); 
+        SerialPC.print(" Hole "); SerialPC.print(currentHole[currentDisk]); 
+        SerialPC.print(" Vol "); SerialPC.println(currentVolume[currentDisk]); 
 			}
 		} // end turn on
 
@@ -506,23 +479,26 @@ void singleRegisterPlay(uint8_t pitch, uint8_t velocity) {
           currentHole[d] = DEFAULT_HOLE;
         }
         float speed = setSpeed(currentNote[d], currentHole[d], d);
-        SerialUSB.print("disk"); SerialUSB.print(d);
-        SerialUSB.print(" speed set to "); SerialUSB.println(speed);
-        SerialUSB.println("Glissando"); SerialUSB.println("");
+        SerialPC.print("disk"); SerialPC.print(d);
+        SerialPC.print(" speed set to "); SerialPC.println(speed);
       }
+      SerialPC.println("Glissando");
 
 		} // end glissando
 	}
 	else { // note off message
-
-		singleRegisterState = DISKSTATE_WAITING;
-		solenoidOff(currentDisk, currentHole[currentDisk], currentVolume[currentDisk]);
-    SerialUSB.print("OFF ");
-    SerialUSB.print("Disk "); SerialUSB.print(currentDisk); 
-    SerialUSB.print(" Hole "); SerialUSB.print(currentHole[currentDisk]); 
-    SerialUSB.print(" Vol "); SerialUSB.println(currentVolume[currentDisk]); 
-    SerialUSB.println("");
-
+    // only turn off if it is for the currently playing note
+    if(pitch == currentNote[currentDisk]) {
+      singleRegisterState = DISKSTATE_WAITING;
+      solenoidOff(currentDisk, currentHole[currentDisk], currentVolume[currentDisk]);
+      SerialPC.print("OFF ");
+      SerialPC.print("Disk "); SerialPC.print(currentDisk); 
+      SerialPC.print(" Hole "); SerialPC.print(currentHole[currentDisk]); 
+      SerialPC.print(" Vol "); SerialPC.println(currentVolume[currentDisk]);
+    }
+    else {
+      SerialPC.println("Off for different note ignored");
+    }
 	} // end note off
 } // end single register play function
 
@@ -534,23 +510,23 @@ void handleOtherMessage(OSCMessage msg) {
 
 	// Turn off all notes
   if( msg.dispatch("/allNotesOff", allSolenoidsOffHelper, 0) ) {
-    SerialUSB.println("Ran: All Notes Off");
+    SerialPC.println("Ran: All Notes Off");
   }
 
   else if( msg.dispatch("/setMode", setModeHelper, 0) ) {
-    SerialUSB.println("Ran: Set Mode");
+    SerialPC.println("Ran: Set Mode");
   }
 
   else if( msg.dispatch("/stopDisks", stopDisksHelper, 0) ) {
-    SerialUSB.println("Ran: Stop Disks");
+    SerialPC.println("Ran: Stop Disks");
   }
 
   else if( msg.dispatch("/startDisks", startDisksHelper, 0) ) {
-    SerialUSB.println("Ran: Start Disks");
+    SerialPC.println("Ran: Start Disks");
   }
 
   else {
-    SerialUSB.println("Unable to process message");
+    SerialPC.println("Unable to process message");
   }
 
 	// else do nothing
@@ -583,6 +559,46 @@ void testSequence(uint8_t pitch) {
   singleRegisterPlay(pitch,0);
   delay(1000);
 
+}
+
+void test(void) {
+  for(uint8_t d = 0; d < NUM_DISKS; d++) {
+    for(uint8_t v = 0; v < VOLUME_LEVELS; v++) {
+      for(uint8_t h = 0; h < NUM_HOLE_SETS; h++) {
+        digitalWrite(solenoidPins[d][v][h], HIGH);
+        delay(500);
+      }
+    }
+  }
+  for(uint8_t d = 0; d < NUM_DISKS; d++) {
+    for(uint8_t v = 0; v < VOLUME_LEVELS; v++) {
+      for(uint8_t h = 0; h < NUM_HOLE_SETS; h++) {
+        digitalWrite(solenoidPins[d][v][h], LOW);
+        delay(500);
+      }
+    }
+  }
+  
+  SerialPC.println("Loop Start");
+  // test single register on/off
+  testSequence(69);
+  testSequence(71);
+  testSequence(73);
+  testSequence(74);
+  testSequence(76);
+  testSequence(78);
+  testSequence(80);
+  testSequence(81);
+
+  // test single register glissando
+  singleRegisterPlay(69,1);
+  delay(1000);
+  singleRegisterPlay(73,1);
+  delay(1000);
+  singleRegisterPlay(69,1);
+  delay(1000);
+  singleRegisterPlay(69,0);
+  delay(1000);
 }
 
 void setModeHelper(OSCMessage &msg) {
