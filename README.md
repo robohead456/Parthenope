@@ -7,17 +7,17 @@ To access the original code switch to the V1 branch.
 ## Things being done in this version
 
 Hardware:
-- [ ] Quieter motors/drivers to eliminate high pitched whine
-- [ ] More powerful motors to eliminate the hand spinning setup step
-- [ ] Motor controllers that can break to slow disk - for use in disk speed control
-- [ ] Change to a larger Nucleo board with Ethernet
-- [ ] More disks for a larger range
+- [x] Quieter motors/drivers to eliminate high pitched whine
+- [x] More powerful motors to eliminate the hand spinning setup step
+- [x] Motor controllers that can break to slow disk - for use in disk speed control
+- [x] Change to a larger embedded board with Ethernet
+- [x] More disks for a larger range
 - [ ] Frame to attach all disks to
 - [ ] RGB LED lights!
-- [ ] Possibly add resonators
-- [ ] Better air blower system that can play multiple notes and hopefully doesn't use a compressor
-- [ ] Dedicated power supplies
+- [x] Better air system that can play multiple notes
+- [x] Dedicated power supplies
 
 Software:
+- [ ] Multiple playing modes (single register, multi register, analog control, etc)
 - [ ] Send disk speed in rps from max to the nucleo (MIDI pitch bend?)
-- [ ] Ethernet communication
+- [x] Ethernet communication
